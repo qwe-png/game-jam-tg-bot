@@ -1,7 +1,3 @@
-import os
-
-from flask import Flask
-
 import telebot
 from telebot import types
 import requests
@@ -13,7 +9,9 @@ bot = telebot.TeleBot('5163172103:AAHmUeEMMw_NrG8TiY-ZZbasxjs806DAVRc')
 markup = types.ReplyKeyboardMarkup()
 itembtngst = types.KeyboardButton('/gst')
 itembtnhelp = types.KeyboardButton('/help')
-markup.row(itembtngst, itembtnhelp)
+itembtna = types.KeyboardButton('/id')
+itembtny = types.KeyboardButton('/file')
+markup.row(itembtngst, itembtnhelp, itembtny, itembtna)
 bot.send_message(704213045, "Выберете действие:", reply_markup=markup)
 names = []
 dates = []
@@ -49,6 +47,7 @@ for i in lin:
     links.append(str(i).split('a href="')[1].split('"')[0])
 links = links[::2]
 
+
 @bot.message_handler(content_types=['text'])
 def get_text_messages(message):
     if message.text == "/gst":
@@ -56,19 +55,17 @@ def get_text_messages(message):
             bot.send_message(message.from_user.id, f'{names[i]}\n{dates[i]}\nhttps://itch.io{links[i]}')
     elif message.text == "/help":
         bot.send_message(message.from_user.id, "/gst - выводит даты начала ближайших game jams")
+        bot.send_message(message.from_user.id, "/id - выводит id пользователя")
+        bot.send_message(message.from_user.id, "/file - отправляет фото с моим именем")
+    elif message.text == "/id":
+        bot.send_message(message.from_user.id, message.chat.id)
+    elif message.text == "/file":
+        photo = open('res.jpg', 'rb')
+        bot.send_photo(message.from_user.id, photo)
+        photo.close()
     else:
         bot.send_message(message.from_user.id, "Я тебя не понимаю. Напиши /help.")
 
 
+
 bot.polling(none_stop=True, interval=0)
-app = Flask(__name__)
-
-
-@app.route("/")
-def index():
-    return "бот должен был запуситться"
-
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
