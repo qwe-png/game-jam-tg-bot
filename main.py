@@ -4,15 +4,14 @@ import requests
 from bs4 import BeautifulSoup
 import datetime as dt
 
-
 bot = telebot.TeleBot('5163172103:AAHmUeEMMw_NrG8TiY-ZZbasxjs806DAVRc')
 markup = types.ReplyKeyboardMarkup()
 itembtngst = types.KeyboardButton('/gst')
 itembtnhelp = types.KeyboardButton('/help')
 itembtna = types.KeyboardButton('/id')
 itembtny = types.KeyboardButton('/file')
-markup.row(itembtngst, itembtnhelp, itembtny, itembtna)
-bot.send_message(704213045, "Выберете действие:", reply_markup=markup)
+itembtno = types.KeyboardButton('/about us')
+markup.add(itembtngst, itembtnhelp, itembtny, itembtna, itembtno)
 names = []
 dates = []
 links = []
@@ -50,22 +49,42 @@ links = links[::2]
 
 @bot.message_handler(content_types=['text'])
 def get_text_messages(message):
-    if message.text == "/gst":
+    if message.text == "/start":
+        bot.send_message(message.from_user.id, "Вас приветствует телеграм бот Game Jams Bot."
+                                               " Напишите /help для продолжения", reply_markup=markup)
+    elif message.text == "/gst":
         for i in range(len(names)):
             bot.send_message(message.from_user.id, f'{names[i]}\n{dates[i]}\nhttps://itch.io{links[i]}')
     elif message.text == "/help":
-        bot.send_message(message.from_user.id, "/gst - выводит даты начала ближайших game jams")
-        bot.send_message(message.from_user.id, "/id - выводит id пользователя")
-        bot.send_message(message.from_user.id, "/file - отправляет фото с моим именем")
+        bot.send_message(message.from_user.id, "/gst - выводит даты начала ближайших game jams \n"
+                                               "/id - выводит id пользователя \n"
+                                               "/file - отправляет фото \n"
+                                               "/about us - информация о разработчиках\n"
+                                               "/support - отправить сообщение разработичку\n")
     elif message.text == "/id":
         bot.send_message(message.from_user.id, message.chat.id)
     elif message.text == "/file":
         photo = open('res.jpg', 'rb')
         bot.send_photo(message.from_user.id, photo)
         photo.close()
+    elif message.text == "/about us":
+        photo = open('res.jpg', 'rb')
+        bot.send_photo(message.from_user.id, photo, "Мы команда учеников яндекс лицея и это телеграм бот нашего"
+                                                    " проекта. Здесь вы можете узнать его возможности и ими "
+                                                    "воспользоваться.")
+        photo.close()
+    elif message.text == "/support":
+        bot.send_message(message.from_user.id, "Напишите ваше сообщение для разработчика")
+        bot.register_next_step_handler(message, ans)
+        
     else:
         bot.send_message(message.from_user.id, "Я тебя не понимаю. Напиши /help.")
 
+
+def ans(message):
+    bot.send_message(704213045, "сообщение от пользователя: \"{}\". Его айди - {}".format(message.text,
+                                                                                     message.from_user.id))
+    bot.send_message(message.from_user.id, "сообщение отправлено")
 
 
 bot.polling(none_stop=True, interval=0)
