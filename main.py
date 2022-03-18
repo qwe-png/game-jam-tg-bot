@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import datetime as dt
 
 bot = telebot.TeleBot('5163172103:AAHmUeEMMw_NrG8TiY-ZZbasxjs806DAVRc')
+# 704213045
 markup = types.ReplyKeyboardMarkup()
 itembtngst = types.KeyboardButton('/gst')
 itembtnhelp = types.KeyboardButton('/help')
@@ -17,6 +18,8 @@ dates = []
 links = []
 htm = ''
 images = []
+cou = 1
+phs = []
 url = 'https://itch.io/jams'
 response = requests.get(url)
 soup = BeautifulSoup(response.text, 'html.parser')
@@ -49,42 +52,86 @@ links = links[::2]
 
 @bot.message_handler(content_types=['text'])
 def get_text_messages(message):
+    global phs, cou
     if message.text == "/start":
         bot.send_message(message.from_user.id, "Вас приветствует телеграм бот Game Jams Bot."
                                                " Напишите /help для продолжения", reply_markup=markup)
+
+
     elif message.text == "/gst":
         for i in range(len(names)):
             bot.send_message(message.from_user.id, f'{names[i]}\n{dates[i]}\nhttps://itch.io{links[i]}')
+
+
     elif message.text == "/help":
         bot.send_message(message.from_user.id, "/gst - выводит даты начала ближайших game jams \n"
                                                "/id - выводит id пользователя \n"
                                                "/file - отправляет фото \n"
                                                "/about us - информация о разработчиках\n"
                                                "/support - отправить сообщение разработичку\n")
+
+
     elif message.text == "/id":
-        bot.send_message(message.from_user.id, message.chat.id)
+        bot.send_message(message.from_user.id, "/check {}",format(message.chat.id))
+
+
     elif message.text == "/file":
         photo = open('res.jpg', 'rb')
         bot.send_photo(message.from_user.id, photo)
         photo.close()
+
+
     elif message.text == "/about us":
         photo = open('res.jpg', 'rb')
         bot.send_photo(message.from_user.id, photo, "Мы команда учеников яндекс лицея и это телеграм бот нашего"
                                                     " проекта. Здесь вы можете узнать его возможности и ими "
                                                     "воспользоваться.")
         photo.close()
+
+
     elif message.text == "/support":
         bot.send_message(message.from_user.id, "Напишите ваше сообщение для разработчика")
         bot.register_next_step_handler(message, ans)
+
+
+    elif message.text == "/payment":
+        bot.send_message(message.from_user.id, "отправьте фото с платежом")
+        @bot.message_handler(content_types=["photo"])
+        def photo(message):
+            idphoto = message.photo[0].file_id
+            bot.send_message(704213045, "кто-то произвел оплату, всего непрочитанных: {}".format(cou))
+            bot.send_message(message.from_user.id, "фото отправленно")
+            phs.append(idphoto)
+
+
+    elif message.text == "/check 704213045":
+        if phs:
+            cou += 1
+            for i in range(len(phs)):
+                bot.send_photo(704213045, phs[i])
+        else:
+            bot.send_message(704213045, "новых фотографий не было")
+
+
+    elif message.text == "/clear 704213045":
+        phs = []
+        bot.send_message(704213045, "готово")
         
+
     else:
         bot.send_message(message.from_user.id, "Я тебя не понимаю. Напиши /help.")
 
 
 def ans(message):
     bot.send_message(704213045, "сообщение от пользователя: \"{}\". Его айди - {}".format(message.text,
-                                                                                     message.from_user.id))
+                                                                                          message.from_user.id))
     bot.send_message(message.from_user.id, "сообщение отправлено")
+
+    # добавить функцию получении новых фоторафий и отправление уведолмения при получении
+
+
+#  def otvet():
+#      bot.send_message(id_otveta, "")
 
 
 bot.polling(none_stop=True, interval=0)
