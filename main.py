@@ -242,7 +242,7 @@ def get_text_messages(message):
             """).fetchall()
             cursor.close()
             for item in result:
-                stroka = str(str(item[1]) + " " + str(item[2]) + " " + str(item[3]))
+                stroka = str(str(item[0]) + " " + str(item[1]) + " " + str(item[2]) + " " + str(item[3]))
                 bot.send_photo(704213045, item[4], stroka)
         else:
             bot.send_message(message.from_user.id, "отказано в доступе")
