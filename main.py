@@ -3,16 +3,36 @@ from telebot import types
 import requests
 from bs4 import BeautifulSoup
 import datetime as dt
+import sqlite3
+
 
 bot = telebot.TeleBot('5163172103:AAHmUeEMMw_NrG8TiY-ZZbasxjs806DAVRc')
 # 704213045
+
 markup = types.ReplyKeyboardMarkup()
 itembtngst = types.KeyboardButton('/gst')
 itembtnhelp = types.KeyboardButton('/help')
 itembtna = types.KeyboardButton('/id')
 itembtny = types.KeyboardButton('/file')
 itembtno = types.KeyboardButton('/about us')
+
+markup_c = types.ReplyKeyboardMarkup()
+itembtnyes = types.KeyboardButton('yes')
+itembtnno = types.KeyboardButton('no')
+markup_c.add(itembtnyes, itembtnno)
+
 markup.add(itembtngst, itembtnhelp, itembtny, itembtna, itembtno)
+con = sqlite3.connect("tg_bot", check_same_thread=False)
+cur = con.cursor()
+
+result = cur.execute("""
+SELECT t.id_vip_1 FROM data_telega AS t
+""").fetchall()
+
+for item in result:
+    print(item[0])
+
+
 names = []
 dates = []
 links = []
@@ -20,6 +40,9 @@ htm = ''
 images = []
 cou = 1
 phs = []
+id_otvet = 0
+
+
 url = 'https://itch.io/jams'
 response = requests.get(url)
 soup = BeautifulSoup(response.text, 'html.parser')
@@ -52,7 +75,7 @@ links = links[::2]
 
 @bot.message_handler(content_types=['text'])
 def get_text_messages(message):
-    global phs, cou
+    global phs, cou, id_otvet
     if message.text == "/start":
         bot.send_message(message.from_user.id, "Вас приветствует телеграм бот Game Jams Bot."
                                                " Напишите /help для продолжения", reply_markup=markup)
@@ -72,7 +95,7 @@ def get_text_messages(message):
 
 
     elif message.text == "/id":
-        bot.send_message(message.from_user.id, "/check {}",format(message.chat.id))
+        bot.send_message(message.from_user.id, "/check {}", format(message.chat.id))
 
 
     elif message.text == "/file":
@@ -96,6 +119,7 @@ def get_text_messages(message):
 
     elif message.text == "/payment":
         bot.send_message(message.from_user.id, "отправьте фото с платежом")
+
         @bot.message_handler(content_types=["photo"])
         def photo(message):
             idphoto = message.photo[0].file_id
@@ -103,12 +127,13 @@ def get_text_messages(message):
             bot.send_message(message.from_user.id, "фото отправленно")
             phs.append(idphoto)
 
+        cou += 1
 
     elif message.text == "/check 704213045":
         if phs:
-            cou += 1
             for i in range(len(phs)):
-                bot.send_photo(704213045, phs[i])
+                bot.send_photo(704213045, phs[i], reply_markup=markup_c)
+                bot.register_next_step_handler(message, confirm)
         else:
             bot.send_message(704213045, "новых фотографий не было")
 
@@ -116,7 +141,20 @@ def get_text_messages(message):
     elif message.text == "/clear 704213045":
         phs = []
         bot.send_message(704213045, "готово")
-        
+
+
+    elif message.text.split()[0] == "/answer":
+        try:
+            m = message.text.split()
+            id_otvet = m[1]
+            bot.send_message(message.from_user.id, "введите сообщение")
+            bot.register_next_step_handler(message, otvet)
+        except IndexError:
+            bot.send_message(message.from_user.id, "неверный айди")
+
+    elif message.text == "/test":
+        bot.register_next_step_handler(message, confirm)
+
 
     else:
         bot.send_message(message.from_user.id, "Я тебя не понимаю. Напиши /help.")
@@ -130,8 +168,23 @@ def ans(message):
     # добавить функцию получении новых фоторафий и отправление уведолмения при получении
 
 
-#  def otvet():
-#      bot.send_message(id_otveta, "")
+def otvet(message):
+    global id_otvet
+    bot.send_message(int(id_otvet), "вам пришло сообщение от {}".format(message.from_user.id))
+    bot.send_message(message.from_user.id, "сообщение отправлено {}".format(id_otvet))
+    bot.send_message(int(id_otvet), message.text)
+
+
+def confirm(message):
+    if message.text == "yes":
+        iiddd = message.from_user.id
+        cur.execute("""INSERT INTO data_telega (id_vip_1) VALUES ({})""".format(iiddd))
+        con.commit()
+
+        bot.send_message(704213045, "confd")
+    elif message.text == "no":
+        bot.send_message(704213045, "not confd")
 
 
 bot.polling(none_stop=True, interval=0)
+
