@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import datetime as dt
 import sqlite3
+import random
 
 
 bot = telebot.TeleBot('5163172103:AAHmUeEMMw_NrG8TiY-ZZbasxjs806DAVRc')
@@ -29,6 +30,8 @@ result = cur.execute("""
 SELECT t.id_vip_1 FROM data_telega AS t
 """).fetchall()
 
+con.close()
+
 for item in result:
     print(item[0])
 
@@ -38,9 +41,12 @@ dates = []
 links = []
 htm = ''
 images = []
-cou = 1
+cou = 0
 phs = []
+idsph = []
+flood = []
 id_otvet = 0
+id_pay = 0
 
 
 url = 'https://itch.io/jams'
@@ -75,7 +81,7 @@ links = links[::2]
 
 @bot.message_handler(content_types=['text'])
 def get_text_messages(message):
-    global phs, cou, id_otvet
+    global phs, cou, id_otvet, idsph, id_pay
     if message.text == "/start":
         bot.send_message(message.from_user.id, "Вас приветствует телеграм бот Game Jams Bot."
                                                " Напишите /help для продолжения", reply_markup=markup)
@@ -118,29 +124,50 @@ def get_text_messages(message):
 
 
     elif message.text == "/payment":
-        bot.send_message(message.from_user.id, "отправьте фото с платежом")
+        daten = dt.datetime.now()
+        daten = str(daten)
+        code = random.randint(10000, 99999)
+        bot.send_message(message.from_user.id, "отправьте фото с платежом {}".format(code))
+
 
         @bot.message_handler(content_types=["photo"])
         def photo(message):
             idphoto = message.photo[0].file_id
             bot.send_message(704213045, "кто-то произвел оплату, всего непрочитанных: {}".format(cou))
             bot.send_message(message.from_user.id, "фото отправленно")
+            idsph.append("{}, {}, {}".format(code, daten, message.from_user.id))
             phs.append(idphoto)
-
+            print(idphoto)
+            sqlite_connection = sqlite3.connect('tg_bot')
+            cursor = sqlite_connection.cursor()
+            sqlite_insert_with_param = """INSERT INTO dateofpays
+                                  (tg_id, date, code, photo_id)
+                                  VALUES (?, ?, ?, ?);"""
+            data_tuple = (message.from_user.id, str(daten), code, idphoto)
+            cursor.execute(sqlite_insert_with_param, data_tuple)
+            sqlite_connection.commit()
+            cursor.close()
         cou += 1
 
-    elif message.text == "/check 704213045":
-        if phs:
-            for i in range(len(phs)):
-                bot.send_photo(704213045, phs[i], reply_markup=markup_c)
-                bot.register_next_step_handler(message, confirm)
+    elif message.text == "/check":
+        if message.from_user.id == 704213045:
+            if phs:
+                for i in range(len(phs)):
+                    bot.send_photo(704213045, phs[i], idsph[i], reply_markup=markup_c)
+            else:
+                bot.send_message(704213045, "новых фотографий не было")
         else:
-            bot.send_message(704213045, "новых фотографий не было")
+            bot.send_message(message.from_user.id, "отказано в доступе")
 
 
-    elif message.text == "/clear 704213045":
-        phs = []
-        bot.send_message(704213045, "готово")
+
+    elif message.text == "/clear":
+        if message.from_user.id == 704213045:
+            phs = []
+            bot.send_message(704213045, "готово")
+        else:
+            bot.send_message(message.from_user.id, "отказано в доступе")
+
 
 
     elif message.text.split()[0] == "/answer":
@@ -153,9 +180,90 @@ def get_text_messages(message):
             bot.send_message(message.from_user.id, "неверный айди")
 
     elif message.text == "/test":
-        bot.register_next_step_handler(message, confirm)
+        pass
+
+    elif message.text.split()[0] == "/confirm":
+        try:
+            m = message.text.split()
+            id_pay = m[1]
+            if message.from_user.id == 704213045:
+                sqlite_connection = sqlite3.connect('tg_bot')
+                cursor = sqlite_connection.cursor()
+                cursor.execute("""INSERT INTO data_telega (id_vip_1) VALUES ({})""".format(id_pay))
+                sqlite_connection.commit()
+                cursor.close()
+                bot.send_message(704213045, "confd {}".format(id_pay))
+                bot.send_message(id_pay, "ваша оплата подтверждена")
+            else:
+                bot.send_message(message.from_user.id, "отказано в доступе")
+        except IndexError:
+            bot.send_message(message.from_user.id, "неверный айди")
 
 
+    elif message.text.split()[0] == "/confirm":
+        try:
+            m = message.text.split()
+            id_pay = m[1]
+            if message.from_user.id == 704213045:
+                sqlite_connection = sqlite3.connect('tg_bot')
+                cursor = sqlite_connection.cursor()
+                cursor.execute("""INSERT INTO data_telega (id_vip_1) VALUES ({})""".format(id_pay))
+                sqlite_connection.commit()
+                cursor.close()
+                bot.send_message(704213045, "confd {}".format(id_pay))
+                bot.send_message(id_pay, "ваша оплата подтверждена")
+            else:
+                bot.send_message(message.from_user.id, "отказано в доступе")
+        except IndexError:
+            bot.send_message(message.from_user.id, "неверный айди")
+
+
+    elif message.text.split()[0] == "/reject":
+        try:
+            m = message.text.split()
+            id_pay = m[1]
+            if message.from_user.id == 704213045:
+                bot.send_message(704213045, "not confd {}".format(id_pay))
+                bot.send_message(id_pay, "платеж не подтвержден, отправьте сообщение на 704213045"
+                                         " с кодом указанном при оплате (/answer 704213045 [сообщение])")
+                bot.register_next_step_handler(message, confirm)
+            else:
+                bot.send_message(message.from_user.id, "отказано в доступе")
+        except IndexError:
+            bot.send_message(message.from_user.id, "неверный айди")
+
+
+    elif message.text == "/bd":
+        if message.from_user.id == 704213045:
+            sqlite_connection = sqlite3.connect('tg_bot')
+            cursor = sqlite_connection.cursor()
+            result = cursor.execute("""
+            SELECT * FROM dateofpays
+            """).fetchall()
+            cursor.close()
+            for item in result:
+                stroka = str(str(item[1]) + " " + str(item[2]) + " " + str(item[3]))
+                bot.send_photo(704213045, item[4], stroka)
+        else:
+            bot.send_message(message.from_user.id, "отказано в доступе")
+
+
+    elif message.text.split()[0] == "/cl_bd":
+        try:
+            if message.from_user.id == 704213045:
+                sqlite_connection = sqlite3.connect('tg_bot')
+                cursor = sqlite_connection.cursor()
+                result = cursor.execute(f"""
+                            DELETE FROM dateofpays WHERE id = {message.text.split()[1]}
+                            """).fetchall()
+                sqlite_connection.commit()
+                cursor.close()
+            else:
+                bot.send_message(message.from_user.id, "отказано в доступе")
+        except IndexError:
+            bot.send_message(message.from_user.id, "неверный айди")
+            
+            
     else:
         bot.send_message(message.from_user.id, "Я тебя не понимаю. Напиши /help.")
 
@@ -177,14 +285,32 @@ def otvet(message):
 
 def confirm(message):
     if message.text == "yes":
-        iiddd = message.from_user.id
-        cur.execute("""INSERT INTO data_telega (id_vip_1) VALUES ({})""".format(iiddd))
-        con.commit()
-
-        bot.send_message(704213045, "confd")
+        flood.append(id_pay)
+        bot.send_message(id_pay, "вы были отправлены в список нарушителей за неверное фото,"
+                                 "если это было сделано по ошибке напишите на айди 704213045 "
+                                 "(/answer 704213045 [сообщение])")
     elif message.text == "no":
-        bot.send_message(704213045, "not confd")
+        pass
 
 
 bot.polling(none_stop=True, interval=0)
 
+
+# sqlite_connection = sqlite3.connect('tg_bot')
+# cursor = sqlite_connection.cursor()
+# result = cursor.execute("""
+#             SELECT * FROM dateofpays
+#             """).fetchall()
+# sqlite_connection.commit()
+# cursor.close()
+
+
+# if message.from_user.id == 704213045:
+#
+# else:
+#     bot.send_message(message.from_user.id, "отказано в доступе")
+
+# try:
+#
+# except IndexError:
+#     bot.send_message(message.from_user.id, "неверный айди")
