@@ -22,6 +22,7 @@ flood = []
 id_otvet = 0
 id_pay = 0
 admins = []
+desk = [1]
 
 markup = types.ReplyKeyboardMarkup()
 itembtnhelp = types.KeyboardButton('/help')
@@ -43,7 +44,11 @@ for item in result:
 result = cur.execute("""SELECT id_admin FROM admins""").fetchall()
 for item in result:
     admins.append(item[0])
+
+ids = cur.execute(f"""SELECT id FROM desk""").fetchall()
+print(ids)
 con.close()
+print(admins)
 
 # -------------------------------------------------------------------------------------
 url = 'https://itch.io/jams'
@@ -76,11 +81,38 @@ for i in lin:
 links = links[::2]
 
 
+def parser(url):
+    htm = ''
+    games = []
+    imgs = []
+    links = []
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    name1 = soup.find_all('div', class_="stat_header_widget")
+    soup1 = BeautifulSoup(str(name1[0]), 'html.parser')
+    name = str(soup1.find_all('h2')[0])
+    name = name.split('>')[1].split('<')[0]
+    htm += f'<h1>Author: {name}</h1>'
+    gms = soup.find_all('a', class_="title game_link")
+    for i in gms:
+        games.append(i.text)
+    im = soup.find_all('div', class_="game_thumb")
+    for i in im:
+        imgs.append(str(i).split('url(\'')[1].split('\')')[0])
+    ln = soup.find_all('a', class_="thumb_link game_link")
+    for i in ln:
+        links.append(str(i).split('href="')[1].split('"')[0])
+    # print(games, links, imgs, sep='\n')
+    for i in range(len(games)):
+        htm += f'abob{games[i]}\n real shit {links[i]}\n pmg {links[i]}'
+    return htm
+
+
 # --------------------------------------------------------------------------------------
 
 @bot.message_handler(content_types=['text'])
 def get_text_messages(message):
-    global phs, cou, id_otvet, idsph, id_pay
+    global phs, cou, id_otvet, idsph, id_pay, desk, ids
     if message.text == "/start":
         bot.send_message(message.from_user.id, "Вас приветствует телеграм бот Game Jams Bot."
                                                " Напишите /help для продолжения", reply_markup=markup)
@@ -133,7 +165,7 @@ def get_text_messages(message):
     elif message.text == "/about us":
         photo = open('res.jpg', 'rb')
         bot.send_photo(message.from_user.id, photo, "Мы команда учеников яндекс лицея и это телеграм бот нашего"
-                                                    " проекта. Здесь вы можете узнать его возможности и ими "
+                                                    " проекта. Здесь вы можете узнать его возможносях и ими "
                                                     "воспользоваться.")
         photo.close()
 
@@ -290,6 +322,54 @@ def get_text_messages(message):
         except ValueError:
             bot.send_message(70421045, "айди не в списке")
 
+    elif message.text == "/desk":
+        if ids:
+            con = sqlite3.connect("tg_bot", check_same_thread=False)
+            cur = con.cursor()
+            try:
+                for i in range(len(ids)):
+                    author = cur.execute(f"""SELECT author FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
+                    profile = cur.execute(f"""SELECT profile FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
+                    text = cur.execute(f"""SELECT text FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
+                    id_d = cur.execute(f"""SELECT id FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
+                    temp_desk = f'{id_d} автор: {author}, ' \
+                                f'профиль: {profile}, ' \
+                                f'текст: {text}'
+                    bot.send_message(message.from_user.id, temp_desk)
+            except IndexError:
+                print("ошибочка")
+            con.close()
+        else:
+            bot.send_message(message.from_user.id, "Доска обьявлений сейчас пустует")
+
+    elif message.text == "/create_desk":
+        bot.register_next_step_handler(message, crd)
+
+    elif message.text.split()[0] == "/profile":
+        bot.send_message(message.from_user.id, parser(f'https://itch.io/profile/{message.text.split()[1]}'))
+
+    elif message.text.split()[0] == "/cl_desk":
+        try:
+            if message.from_user.id in admins:
+                sqlite_connection = sqlite3.connect('tg_bot')
+                cursor = sqlite_connection.cursor()
+                result = cursor.execute(f"""
+                            DELETE FROM desk WHERE id = {message.text.split()[1]}
+                            """).fetchall()
+                bot.send_message(704213045, "успешно")
+                sqlite_connection.commit()
+                cursor.close()
+            else:
+                bot.send_message(message.from_user.id, "отказано в доступе")
+        except IndexError:
+            bot.send_message(message.from_user.id, "неверный айди")
+        except ValueError:
+            bot.send_message(70421045, "айди не в списке")
+        con = sqlite3.connect("tg_bot", check_same_thread=False)
+        cur = con.cursor()
+        ids = cur.execute(f"""SELECT id FROM desk""").fetchall()
+        con.close()
+
     else:
         bot.send_message(message.from_user.id, "Я тебя не понимаю. Напиши /help.")
 
@@ -322,6 +402,24 @@ def confirm(message):
     elif message.text == "no":
         pass
 
+def crd(message):
+    global ids
+    m = message.text.split()
+    sqlite_connection = sqlite3.connect('tg_bot')
+    cursor = sqlite_connection.cursor()
+    try:
+        sqlite_insert_with_param = """INSERT INTO desk
+                                              (author, profile, text)
+                                              VALUES (?, ?, ?);"""
+        data_tuple = (m[0], m[1], " ".join(m[2:]))
+        cursor.execute(sqlite_insert_with_param, data_tuple)
+        sqlite_connection.commit()
+    except IndexError:
+        bot.send_message(message.from_user.id, "ошибка")
+    bot.send_message(message.from_user.id, "Отправлено!")
+    ids = cursor.execute(f"""SELECT id FROM desk""").fetchall()
+    cursor.close()
+
 
 bot.polling(none_stop=True, interval=0)
 
@@ -343,3 +441,13 @@ bot.polling(none_stop=True, interval=0)
 #
 # except IndexError:
 #     bot.send_message(message.from_user.id, "неверный айди")
+
+
+# автор: {здесь селект из бд}
+# профиль: {ссылка на профиль автора}
+# текст: {текст обьявления}
+
+# con = sqlite3.connect("tg_bot", check_same_thread=False)
+# cur = con.cursor()
+# ids = cur.execute(f"""SELECT id FROM desk""").fetchall()
+# con.close()
