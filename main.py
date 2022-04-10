@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import datetime as dt
 import sqlite3
 import random
+import datetime
 
 bot = telebot.TeleBot('5163172103:AAHmUeEMMw_NrG8TiY-ZZbasxjs806DAVRc')
 # 704213045
@@ -22,25 +23,31 @@ flood = []
 id_otvet = 0
 id_pay = 0
 admins = []
-desk = [1]
+desk = []
+vips = []
 
 markup = types.ReplyKeyboardMarkup()
 itembtnhelp = types.KeyboardButton('/help')
 itembtna = types.KeyboardButton('/id')
 itembtno = types.KeyboardButton('/about us')
+markup.add(itembtnhelp, itembtna, itembtno)
 
 markup_c = types.ReplyKeyboardMarkup()
 itembtnyes = types.KeyboardButton('yes')
 itembtnno = types.KeyboardButton('no')
 markup_c.add(itembtnyes, itembtnno)
 
-markup.add(itembtnhelp, itembtna, itembtno)
+conf = types.ReplyKeyboardMarkup()
+itembtnyesc = types.KeyboardButton('yes')
+itembtnnoc = types.KeyboardButton('no')
+conf.add(itembtnyesc, itembtnnoc)
+
 con = sqlite3.connect("tg_bot", check_same_thread=False)
 cur = con.cursor()
 
 result = cur.execute("""SELECT t.id_vip_1 FROM data_telega AS t""").fetchall()
 for item in result:
-    print(item[0])
+    vips.append(item[0])
 result = cur.execute("""SELECT id_admin FROM admins""").fetchall()
 for item in result:
     admins.append(item[0])
@@ -132,6 +139,9 @@ def get_text_messages(message):
                                                    "/support - отправить сообщение разработичку\n"
                                                    "/payment - оплатить вип доступ\n"
                                                    "/answer [id] - ответить пользователю по айди\n"
+                                                   "/desk - посмотреть доску обьявление поиска команды\n"
+                                                   "/create_desk - создать свое обьявление по поиску команды\n"
+                                                   "/timer [ч] [м] [с] - установить таймер(вип функция)\n"
                                                    "------админское------\n"
                                                    "/clear - очищает бесполезный список фото\n"
                                                    "/check - выводит список фото АБСОЛЮТНО ЮЗЛЕСС\n"
@@ -140,7 +150,8 @@ def get_text_messages(message):
                                                    "следующее сообщение [yes/no]\n"
                                                    "/bd - выводит базу данных\n"
                                                    "/cl_bd [id] - чистит определенную позицию в бд\n"
-                                                   "/flood_del [id] - убирает пользователя из флуд списка")
+                                                   "/flood_del [id] - убирает пользователя из флуд списка\n"
+                                                   "/cl_desk [i] - убирает обьявление")
         else:
             bot.send_message(message.from_user.id, "/gst - выводит даты начала ближайших game jams \n"
                                                    "/id - выводит id пользователя \n"
@@ -148,7 +159,10 @@ def get_text_messages(message):
                                                    "/about us - информация о разработчиках\n"
                                                    "/support - отправить сообщение разработичку\n"
                                                    "/payment - оплатить вип доступ\n"
-                                                   "/answer [id] - ответить пользователю по айди\n")
+                                                   "/answer [id] - ответить пользователю по айди\n"
+                                                   "/desk - посмотреть доску обьявление поиска команды\n"
+                                                   "/create_desk - создать свое обьявление по поиску команды\n"
+                                                   "/timer [ч] [м] [с] - установить таймер(вип функция)\n")
 
 
 
@@ -176,6 +190,9 @@ def get_text_messages(message):
 
 
     elif message.text == "/payment":
+        text = "Получение ВИП доступа дает вам" \
+               " приоритетный показ в доске обьявлений"
+        bot.send_message(message.from_user.id, text)
         if message.from_user.id not in flood:
             daten = dt.datetime.now()
             daten = str(daten)
@@ -203,8 +220,8 @@ def get_text_messages(message):
             cou += 1
         else:
             bot.send_message(message.from_user.id, "Вы были замечены во флуде и больше не имеете возможности"
-                                                   " отправлять фотографии, если остались вопросы, то пишите на айди "
-                                                   "704213045 (/answer 704213045 [сообщение]")
+                                                   " отправлять фотографии, если остались вопросы, то пишите "
+                                                   "(/support)")
 
     elif message.text == "/check":
         if message.from_user.id in admins:
@@ -263,8 +280,8 @@ def get_text_messages(message):
             id_pay = m[1]
             if message.from_user.id in admins:
                 bot.send_message(704213045, "подтверждаем {}? [yes/no]".format(id_pay))
-                bot.send_message(id_pay, "платеж не подтвержден, отправьте сообщение на 704213045"
-                                         " с кодом указанном при оплате (/answer 704213045 [сообщение])")
+                bot.send_message(id_pay, "платеж не подтвержден, отправьте сообщение "
+                                         "с кодом указанном при оплате (/support)")
                 bot.register_next_step_handler(message, confirm)
             else:
                 bot.send_message(message.from_user.id, "отказано в доступе")
@@ -327,15 +344,22 @@ def get_text_messages(message):
             con = sqlite3.connect("tg_bot", check_same_thread=False)
             cur = con.cursor()
             try:
-                for i in range(len(ids)):
-                    author = cur.execute(f"""SELECT author FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
-                    profile = cur.execute(f"""SELECT profile FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
-                    text = cur.execute(f"""SELECT text FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
-                    id_d = cur.execute(f"""SELECT id FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
-                    temp_desk = f'{id_d} автор: {author}, ' \
-                                f'профиль: {profile}, ' \
-                                f'текст: {text}'
-                    bot.send_message(message.from_user.id, temp_desk)
+                if message.from_user.id not in flood:
+                    for i in range(len(ids)):
+                        author = cur.execute(f"""SELECT author FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
+                        profile = cur.execute(f"""SELECT profile FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
+                        text = cur.execute(f"""SELECT text FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
+                        id_d = cur.execute(f"""SELECT id FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
+                        vip = cur.execute(f"""SELECT vip FROM desk WHERE id = {ids[i][0]}""").fetchall()[0][0]
+                        temp_desk = f'{id_d} автор: {author}, ' \
+                                    f'профиль: {profile}, ' \
+                                    f'текст: {text}'
+                        print((id_d, vip, f'{id_d} автор: {author}', f'профиль: {profile}', f'текст: {text}'))
+                        temp_desk = (str(id_d), str(vip), f'автор: {author}', f'профиль: {profile}', f'текст: {text}')
+                        bot.send_message(message.from_user.id, " ".join(temp_desk))
+                else:
+                    bot.send_message(message.from_user.id, "Вы находитесь в черном списке, отпишите разработчику,"
+                                                           " если это было сделано по ошибке")
             except IndexError:
                 print("ошибочка")
             con.close()
@@ -343,6 +367,9 @@ def get_text_messages(message):
             bot.send_message(message.from_user.id, "Доска обьявлений сейчас пустует")
 
     elif message.text == "/create_desk":
+        bot.send_message(message.from_user.id, "напишите обьявление в формате:\n"
+                                               "[ваше имя (без пробелов] [имя вашего профиля] [текст вашего обьявления"
+                                               " например ваши контакты и кого вы ищите]")
         bot.register_next_step_handler(message, crd)
 
     elif message.text.split()[0] == "/profile":
@@ -370,6 +397,32 @@ def get_text_messages(message):
         ids = cur.execute(f"""SELECT id FROM desk""").fetchall()
         con.close()
 
+    elif message.text.split()[0] == "/timer":
+        if message.from_user.id in vips:
+            m = message.text.split()
+            try:
+                hs = int(m[1])
+                mins = int(m[2])
+                secds = int(m[3])
+                now = datetime.datetime.now()
+                if now.hour + hs > 24:
+                    bot.send_message(message.from_user.id, "Часы не должны уходить на другой день")
+                if now.second + secds > 60:
+                    bot.send_message(message.from_user.id, "Секунд много")
+                if now.hour + mins > 60:
+                    bot.send_message(message.from_user.id, "минуты не должны уходить на другой час")
+                bot.send_message(message.from_user.id, f'засек {message.text}')
+                while datetime.datetime.now().minute != now.minute + mins and\
+                        datetime.datetime.now().second != now.second + secds and\
+                        datetime.datetime.now().minute != now.hour + hs:
+                    pass
+                bot.send_message(message.from_user.id, "end")
+            except IndexError:
+                bot.send_message(message.from_user.id, "Недостаточно аргументов")
+            except ValueError:
+                bot.send_message(message.from_user.id, "Неверное значение ")
+        else:
+            bot.send_message(message.from_user.id, "Отказано в доступе")
     else:
         bot.send_message(message.from_user.id, "Я тебя не понимаю. Напиши /help.")
 
@@ -392,8 +445,8 @@ def otvet(message):
 def confirm(message):
     if message.text == "yes":
         bot.send_message(id_pay, "вы были отправлены в список нарушителей за неверное фото,"
-                                 "если это было сделано по ошибке напишите на айди 704213045 "
-                                 "(/answer 704213045 [сообщение])")
+                                 "если это было сделано по ошибке напишите в поддержку "
+                                 "(/support)")
         sqlite_connection = sqlite3.connect('tg_bot')
         cursor = sqlite_connection.cursor()
         cursor.execute("""INSERT INTO floodban (id_flood) VALUES ({})""".format(id_pay))
@@ -403,23 +456,44 @@ def confirm(message):
         pass
 
 def crd(message):
-    global ids
+    global ids, conf
+    v = False
     m = message.text.split()
-    sqlite_connection = sqlite3.connect('tg_bot')
-    cursor = sqlite_connection.cursor()
-    try:
-        sqlite_insert_with_param = """INSERT INTO desk
-                                              (author, profile, text)
-                                              VALUES (?, ?, ?);"""
-        data_tuple = (m[0], m[1], " ".join(m[2:]))
-        cursor.execute(sqlite_insert_with_param, data_tuple)
-        sqlite_connection.commit()
-    except IndexError:
-        bot.send_message(message.from_user.id, "ошибка")
-    bot.send_message(message.from_user.id, "Отправлено!")
-    ids = cursor.execute(f"""SELECT id FROM desk""").fetchall()
-    cursor.close()
+    if len(m) >= 3:
+        bot.send_message(message.from_user.id, f'проверьте ваше обьявление: \n'
+                                           f'автор: {m[0]}, профиль: {m[1]}, текст: {" ".join(m[2:])}', reply_markup=conf)
+        sqlite_connection = sqlite3.connect('tg_bot')
+        cursor = sqlite_connection.cursor()
+        try:
+            if message.from_user.id in vips:
+                v = True
+            sqlite_insert_with_param = """INSERT INTO desk
+                                                              (author, profile, text, vip)
+                                                              VALUES (?, ?, ?, ?);"""
+            data_tuple = (m[0], m[1], " ".join(m[2:]), v)
+            print(data_tuple)
+            cursor.execute(sqlite_insert_with_param, data_tuple)
+            sqlite_connection.commit()
+            bot.send_message(message.from_user.id, "Вашу неверную запись удалят в скором времени")
+        except IndexError:
+            bot.send_message(message.from_user.id, "ошибка")
 
+        ids = cursor.execute(f"""SELECT id FROM desk""").fetchall()
+        cursor.close()
+        bot.register_next_step_handler(message, crd)
+    else:
+        if message.text == "yes":
+            bot.send_message(message.from_user.id, "Отправлено на доску")
+        elif message.text == "no":
+            con = sqlite3.connect("tg_bot", check_same_thread=False)
+            cur = con.cursor()
+            ids = cur.execute(f"""SELECT id FROM desk""").fetchall()
+            con.close()
+            bot.send_message(704213045, f"удалить запись с айди {ids[-1][0]}")
+            bot.send_message(message.from_user.id, "Напишите ваше сообщение еще раз")
+            bot.register_next_step_handler(message, crd)
+        else:
+            bot.send_message(message.from_user.id, "Неверное обьявление")
 
 bot.polling(none_stop=True, interval=0)
 
